@@ -1,0 +1,85 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: web-blog-buzzgames-me
+  namespace: content-websites  
+spec:
+  selector:
+    app: web-blog-buzzgames-me
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-blog-buzzgames-me
+  namespace: content-websites
+  labels:
+    app: web-blog-buzzgames-me
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-blog-buzzgames-me
+  template:
+    metadata:
+      labels:
+        app: web-blog-buzzgames-me
+    spec:
+      imagePullSecrets:
+      - name: pipeline-docker-registry
+      containers:
+      - name: web-blog-buzzgames-me
+        image: ${CICD_IMAGE}:${CICD_EXECUTION_SEQUENCE}
+        readinessProbe:
+          httpGet:
+            path: /health.php
+            port: 80
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          periodSeconds: 180
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health.php
+            port: 80
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          periodSeconds: 180
+          failureThreshold: 3
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "25Mi"
+            cpu: "0.0001"
+          limits:
+            memory: "50Mi"
+            cpu: "0.001"    
+      nodeSelector:
+        website: "true" 
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: blog-buzzgames-me 
+  namespace: content-websites
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+   - host: blog.buzzgames.me
+     http:
+      paths:
+      - backend:
+          serviceName: web-blog-buzzgames-me 
+          servicePort: 80
+   - host: www.blog.buzzgames.me
+     http:
+      paths:
+      - backend:
+          serviceName: web-blog-buzzgames-me
+          servicePort: 80     
